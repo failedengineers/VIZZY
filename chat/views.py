@@ -8,15 +8,9 @@ from rest_framework.response import Response
 
 from groq import Groq
 
-# ✅ Load API key
+# ✅ Environment variables
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
 STABLEHORDE_API_KEY = os.environ.get("STABLEHORDE_API_KEY")
-
-if not GROQ_API_KEY:
-    print("Missing GROQ_API_KEY")
-
-if not STABLEHORDE_API_KEY:
-    print("Missing STABLEHORDE_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY) if GROQ_API_KEY else None
 
@@ -31,7 +25,6 @@ def get_memory(request):
 
 def save_memory(request, memory):
     request.session["chat_memory"] = memory
-    request.session.modified = True
 
 
 @api_view(['POST'])
@@ -51,19 +44,24 @@ def chat_view(request):
 
         chat_memory = chat_memory[-6:]
 
-        # ✅ FIXED: stricter image detection
-        if "image" in prompt.lower():
-            img = generate_images(prompt)
-            res = {"type": "image", "data": img}
+        # ✅ IMAGE INTENT DETECTION (safe)
+        image_keywords = ["image", "paint", "visual", "art", "draw", "create", "visualize"]
+
+        if any(word in prompt.lower() for word in image_keywords):
+            try:
+                img = generate_images(prompt)
+                res = {"type": "image", "data": img}
+            except Exception as e:
+                print("IMAGE ERROR:", e)
+                res = {"type": "image", "data": ["https://via.placeholder.com/512"]}
         else:
             text = generate_text(prompt, chat_memory)
+            res = {"type": "text", "data": text}
 
             chat_memory.append({
                 "role": "assistant",
                 "content": text
             })
-
-            res = {"type": "text", "data": text}
 
         save_memory(request, chat_memory)
 
@@ -76,13 +74,13 @@ def chat_view(request):
 
 def generate_text(prompt, chat_memory):
     try:
-        if client is None:
-            return "Groq API key missing"
+        if not client:
+            return "Groq API key missing."
 
         messages = [
             {
                 "role": "system",
-                "content": "You are a creative assistant for storytelling, ideas, and emotional content."
+                "content": "You are a helpful, friendly assistant. Reply naturally and clearly."
             }
         ]
 
@@ -103,28 +101,28 @@ def generate_text(prompt, chat_memory):
 
 
 def generate_images(prompt):
+    if not STABLEHORDE_API_KEY:
+        return ["https://via.placeholder.com/512"]
+
+    headers = {
+        "Client-Agent": "vizzy-app",
+        "apikey": STABLEHORDE_API_KEY,
+        "Content-Type": "application/json"
+    }
+
+    final_prompt = enhance_prompt(prompt)
+
     try:
-        headers = {
-            "Client-Agent": "vizzy-app:your-email@gmail.com",
-            "apikey": STABLEHORDE_API_KEY,
-            "Content-Type": "application/json"
-        }
-
-        if not STABLEHORDE_API_KEY:
-            return ["StableHorde API key missing"]
-
-        final_prompt = enhance_prompt(prompt)
-
         submit_res = requests.post(
             "https://stablehorde.net/api/v2/generate/async",
             headers=headers,
             json={
                 "prompt": final_prompt,
                 "params": {
-                    "n": 3,
+                    "n": 1,
                     "width": 512,
                     "height": 512,
-                    "steps": 30,
+                    "steps": 20,
                     "cfg_scale": 7
                 }
             },
@@ -135,17 +133,24 @@ def generate_images(prompt):
         print("Submit response:", submit_data)
 
         if "id" not in submit_data:
-            return ["Error submitting request"]
+            return ["https://via.placeholder.com/512"]
 
         request_id = submit_data["id"]
 
+        # ✅ safer polling with timeout
+        start_time = time.time()
+
         for _ in range(15):
+            if time.time() - start_time > 30:
+                print("Image generation timeout")
+                return ["https://via.placeholder.com/512"]
+
             time.sleep(2)
 
             check_res = requests.get(
                 f"https://stablehorde.net/api/v2/generate/check/{request_id}",
                 headers=headers,
-                timeout=30
+                timeout=10
             )
 
             if check_res.json().get("done"):
@@ -179,3 +184,4 @@ def enhance_prompt(prompt):
         style = "digital art, cinematic lighting, ultra detailed, artstation style"
 
     return f"{prompt}, {style}, high quality, masterpiece"
+
