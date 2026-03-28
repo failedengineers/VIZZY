@@ -12,14 +12,12 @@ from groq import Groq
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-#STABLEHORDE_API_KEY = os.getenv("STABLEHORDE_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY)
 
 
 def home(request):
     return render(request, 'index.html')
-
 
 
 def get_memory(request):
@@ -30,43 +28,43 @@ def save_memory(request, memory):
     request.session["chat_memory"] = memory
 
 
-
 @api_view(['POST'])
 def chat_view(request):
-    prompt = request.data.get('message')
+    try:
+        prompt = request.data.get('message')
 
-    if not prompt:
-        return Response({"error": "No message provided"}, status=400)
+        if not prompt:
+            return Response({"error": "No message provided"}, status=400)
 
-    chat_memory = get_memory(request)
+        chat_memory = get_memory(request)
 
-
-    chat_memory.append({
-        "role": "user",
-        "content": prompt
-    })
-
-    chat_memory = chat_memory[-6:]
-
-    
-    if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw",'create','visualize']):
-        img = generate_images(prompt)
-        res= {"type": "image", "data": img}
-    else:
-        text = generate_text(prompt, chat_memory)
-        res = {"type": "text", "data": text}
-
-        
         chat_memory.append({
-            "role": "assistant",
-            "content": text
+            "role": "user",
+            "content": prompt
         })
 
-    
-    save_memory(request, chat_memory)
+        chat_memory = chat_memory[-6:]
 
-    return Response(res)
+        # Detect image intent
+        if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw", "create", "visualize"]):
+            img = generate_images(prompt)
+            res = {"type": "image", "data": img}
+        else:
+            text = generate_text(prompt, chat_memory)
+            res = {"type": "text", "data": text}
 
+            chat_memory.append({
+                "role": "assistant",
+                "content": text
+            })
+
+        save_memory(request, chat_memory)
+
+        return Response(res)
+
+    except Exception as e:
+        print("VIEW ERROR:", str(e))
+        return Response({"error": str(e)}, status=500)
 
 
 def generate_text(prompt, chat_memory):
@@ -91,19 +89,20 @@ def generate_text(prompt, chat_memory):
 
     except Exception as e:
         print("Groq Error:", e)
-        return "something went wrong. please try again."
+        return "Something went wrong. Please try again."
 
 
 def generate_images(prompt):
     try:
+        # ✅ FIXED HEADERS (no fake apikey)
         headers = {
-            "apikey":'0000000000',
+            "Client-Agent": "vizzy-app",
             "Content-Type": "application/json"
         }
 
         final_prompt = enhance_prompt(prompt)
 
-        # submit request
+        # Submit request
         submit_res = requests.post(
             "https://stablehorde.net/api/v2/generate/async",
             headers=headers,
@@ -116,35 +115,41 @@ def generate_images(prompt):
                     "steps": 30,
                     "cfg_scale": 7
                 }
-            }
+            },
+            timeout=30
         )
 
         submit_data = submit_res.json()
+        print("Submit response:", submit_data)
 
         if "id" not in submit_data:
             return ["Error submitting request"]
 
         request_id = submit_data["id"]
 
-        # polling
+        # Polling
         for _ in range(15):
             time.sleep(2)
 
             check_res = requests.get(
                 f"https://stablehorde.net/api/v2/generate/check/{request_id}",
-                headers=headers
+                headers=headers,
+                timeout=30
             )
 
             if check_res.json().get("done"):
                 break
 
-        
+        # Get result
         result_res = requests.get(
             f"https://stablehorde.net/api/v2/generate/status/{request_id}",
-            headers=headers
+            headers=headers,
+            timeout=30
         )
 
         result_data = result_res.json()
+
+        print("Result response:", result_data)
 
         img = [gen["img"] for gen in result_data.get("generations", [])]
 
@@ -154,7 +159,7 @@ def generate_images(prompt):
         return img[:3]
 
     except Exception as e:
-        print("image Error:", e)
+        print("IMAGE ERROR:", e)
         return ["https://via.placeholder.com/512"]
 
 
