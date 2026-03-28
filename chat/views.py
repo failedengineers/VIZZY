@@ -147,7 +147,7 @@ def generate_images(prompt):
             json={
                 "prompt": final_prompt,
                 "params": {
-                    "n": 3,
+                    "n": 2,
                     "width": 512,
                     "height": 512,
                     "steps": 30,
@@ -170,7 +170,7 @@ def generate_images(prompt):
         logger.info("Request ID: %s", request_id)
 
         # Polling
-        for i in range(15):
+        for i in range(5):
             logger.info("Polling attempt %s", i + 1)
 
             time.sleep(2)
