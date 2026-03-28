@@ -10,8 +10,10 @@ from rest_framework.response import Response
 from groq import Groq
 
 load_dotenv()
-
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+
+if not GROQ_API_KEY:
+    print("Missing GROQ_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY)
 
