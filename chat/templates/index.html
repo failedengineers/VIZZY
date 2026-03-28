@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Vizzy Chat</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f172a;
+            color: white;
+        }
+
+        h2 {
+            text-align: center;
+            padding: 10px;
+        }
+
+        #chat-box {
+            width: 95%;
+            max-width: 700px;
+            margin: auto;
+            height: 70vh;
+            overflow-y: auto;
+            background: #1e293b;
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .message {
+            margin: 10px 0;
+            display: flex;
+        }
+
+        .user {
+            justify-content: flex-end;
+        }
+
+        .ai {
+            justify-content: flex-start;
+        }
+
+        .bubble {
+            padding: 10px 14px;
+            border-radius: 12px;
+            max-width: 70%;
+            word-wrap: break-word;
+        }
+
+        .user .bubble {
+            background: #3b82f6;
+            color: white;
+        }
+
+        .ai .bubble {
+            background: #334155;
+            color: white;
+        }
+
+        img {
+            width: 180px;
+            border-radius: 10px;
+            margin: 5px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+
+        img:hover {
+            transform: scale(1.05);
+        }
+
+        #input-area {
+            width: 95%;
+            max-width: 700px;
+            margin: 10px auto;
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            padding: 12px;
+            border-radius: 8px;
+            border: none;
+            outline: none;
+        }
+
+        button {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            background: #3b82f6;
+            color: white;
+            cursor: pointer;
+        }
+
+        button:hover {
+            background: #2563eb;
+        }
+
+        /* Modal */
+        #modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.8);
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        #modal img {
+            width: 90%;
+            max-width: 500px;
+        }
+
+        #download-btn {
+            margin-top: 10px;
+            padding: 10px 15px;
+            background: #22c55e;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            color: white;
+        }
+
+    </style>
+</head>
+
+<body>
+
+<h2>✨ Vizzy Chat</h2>
+
+<div id="chat-box"></div>
+
+<div id="input-area">
+    <input type="text" id="input" placeholder="Ask anything..." />
+    <button onclick="sendMessage()">Send</button>
+</div>
+
+<!-- Modal -->
+<div id="modal" onclick="closeModal()">
+    <img id="modal-img" />
+    <button id="download-btn" onclick="downloadImage(event)">Download</button>
+</div>
+
+<script>
+async function sendMessage() {
+    let inputField = document.getElementById("input");
+    let input = inputField.value.trim();
+    if (!input) return;
+
+    let chatBox = document.getElementById("chat-box");
+
+    // user message
+    chatBox.innerHTML += `
+        <div class="message user">
+            <div class="bubble">${input}</div>
+        </div>
+    `;
+
+    // loader
+    let loaderId = "loader-" + Date.now();
+    chatBox.innerHTML += `
+        <div class="message ai" id="${loaderId}">
+            <div class="bubble">Thinking...</div>
+        </div>
+    `;
+
+    inputField.value = "";
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+
+    let res = await fetch("/chat/api/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ message: input })
+    });
+
+    let data = await res.json();
+
+    document.getElementById(loaderId)?.remove();
+
+    if (data.type === "text") {
+        chatBox.innerHTML += `
+            <div class="message ai">
+                <div class="bubble">${data.data}</div>
+            </div>
+        `;
+    } else {
+        let imagesHTML = "";
+
+        data.data.forEach(img => {
+            imagesHTML += `
+                <img src="${img}" onclick="openModal('${img}')" />
+            `;
+        });
+
+        chatBox.innerHTML += `
+            <div class="message ai">
+                <div class="bubble">${imagesHTML}</div>
+            </div>
+        `;
+    }
+
+    chatBox.scrollTop = chatBox.scrollHeight;
+}
+
+// Enter key support
+document.getElementById("input").addEventListener("keypress", function(e) {
+    if (e.key === "Enter") sendMessage();
+});
+
+// Modal functions
+function openModal(src) {
+    document.getElementById("modal").style.display = "flex";
+    document.getElementById("modal-img").src = src;
+    document.getElementById("download-btn").setAttribute("data-src", src);
+}
+
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
+
+// Download image
+function downloadImage(event) {
+    event.stopPropagation();
+    let src = document.getElementById("download-btn").getAttribute("data-src");
+
+    let a = document.createElement("a");
+    a.href = src;
+    a.download = "vizzy-image.png";
+    a.click();
+}
+</script>
+
+</body>
+</html>
