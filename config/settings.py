@@ -26,7 +26,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-qq(p0+ia4r3fuzo%3oc8o(wntg+3qm#fz_ir8s@8+djsw9bf&f'
+SECRET_KEY = os.getenv("SECRET_KEY", "django-insecure-fallback-key")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
@@ -127,6 +127,8 @@ STATIC_URL = 'static/'
 
 
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'chat/static')]
+# ✅ ADD THIS
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 import logging
 
