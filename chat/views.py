@@ -2,17 +2,21 @@ from django.shortcuts import render
 import os
 import requests
 import time
-from dotenv import load_dotenv
 
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from groq import Groq
 
+# ✅ Use os.environ (production-safe)
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+STABLEHORDE_API_KEY = os.environ.get("STABLEHORDE_API_KEY")
 
 if not GROQ_API_KEY:
     print("Missing GROQ_API_KEY")
+
+if not STABLEHORDE_API_KEY:
+    print("Missing STABLEHORDE_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -48,8 +52,12 @@ def chat_view(request):
 
         # Detect image intent
         if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw", "create", "visualize"]):
-            img = generate_images(prompt)
-            res = {"type": "image", "data": img}
+            try:
+                img = generate_images(prompt)
+                res = {"type": "image", "data": img}
+            except Exception as e:
+                print("IMAGE ERROR:", e)
+                res = {"type": "image", "data": ["https://via.placeholder.com/512"]}
         else:
             text = generate_text(prompt, chat_memory)
             res = {"type": "text", "data": text}
@@ -94,74 +102,65 @@ def generate_text(prompt, chat_memory):
 
 
 def generate_images(prompt):
-    try:
-        # ✅ FIXED HEADERS (no fake apikey)
-        headers = {
-            "Client-Agent": "vizzy-app",
-            "Content-Type": "application/json"
-        }
+    headers = {
+        "Client-Agent": "vizzy-app",
+        "apikey": STABLEHORDE_API_KEY,  # ✅ REQUIRED
+        "Content-Type": "application/json"
+    }
 
-        final_prompt = enhance_prompt(prompt)
+    final_prompt = enhance_prompt(prompt)
 
-        # Submit request
-        submit_res = requests.post(
-            "https://stablehorde.net/api/v2/generate/async",
-            headers=headers,
-            json={
-                "prompt": final_prompt,
-                "params": {
-                    "n": 3,
-                    "width": 512,
-                    "height": 512,
-                    "steps": 30,
-                    "cfg_scale": 7
-                }
-            },
-            timeout=30
-        )
+    submit_res = requests.post(
+        "https://stablehorde.net/api/v2/generate/async",
+        headers=headers,
+        json={
+            "prompt": final_prompt,
+            "params": {
+                "n": 3,
+                "width": 512,
+                "height": 512,
+                "steps": 30,
+                "cfg_scale": 7
+            }
+        },
+        timeout=30
+    )
 
-        submit_data = submit_res.json()
-        print("Submit response:", submit_data)
+    submit_data = submit_res.json()
+    print("Submit response:", submit_data)
 
-        if "id" not in submit_data:
-            return ["Error submitting request"]
+    if "id" not in submit_data:
+        return ["Error submitting request"]
 
-        request_id = submit_data["id"]
+    request_id = submit_data["id"]
 
-        # Polling
-        for _ in range(15):
-            time.sleep(2)
+    for _ in range(15):
+        time.sleep(2)
 
-            check_res = requests.get(
-                f"https://stablehorde.net/api/v2/generate/check/{request_id}",
-                headers=headers,
-                timeout=30
-            )
-
-            if check_res.json().get("done"):
-                break
-
-        # Get result
-        result_res = requests.get(
-            f"https://stablehorde.net/api/v2/generate/status/{request_id}",
+        check_res = requests.get(
+            f"https://stablehorde.net/api/v2/generate/check/{request_id}",
             headers=headers,
             timeout=30
         )
 
-        result_data = result_res.json()
+        if check_res.json().get("done"):
+            break
 
-        print("Result response:", result_data)
+    result_res = requests.get(
+        f"https://stablehorde.net/api/v2/generate/status/{request_id}",
+        headers=headers,
+        timeout=30
+    )
 
-        img = [gen["img"] for gen in result_data.get("generations", [])]
+    result_data = result_res.json()
+    print("Result response:", result_data)
 
-        if not img:
-            return ["https://via.placeholder.com/512"]
+    img = [gen["img"] for gen in result_data.get("generations", [])]
 
-        return img[:3]
-
-    except Exception as e:
-        print("IMAGE ERROR:", e)
+    if not img:
         return ["https://via.placeholder.com/512"]
+
+    return img[:3]
 
 
 def enhance_prompt(prompt):
