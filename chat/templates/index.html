@@ -237,15 +237,28 @@ function closeModal() {
     document.getElementById("modal").style.display = "none";
 }
 
-// Download image
-function downloadImage(event) {
+async function downloadImage(event) {
     event.stopPropagation();
+
     let src = document.getElementById("download-btn").getAttribute("data-src");
 
-    let a = document.createElement("a");
-    a.href = src;
-    a.download = "vizzy-image.png";
-    a.click();
+    try {
+        let response = await fetch(src);
+        let blob = await response.blob();
+
+        let url = window.URL.createObjectURL(blob);
+
+        let a = document.createElement("a");
+        a.href = url;
+        a.download = "vizzy-image.png";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        window.URL.revokeObjectURL(url);
+    } catch (err) {
+        alert("Download failed. Try again.");
+    }
 }
 </script>
 
