@@ -182,21 +182,16 @@ def generate_images(prompt):
         )
 
         result_data = result_res.json()
-       valid_images = []
-for gen in result_data.get("generations", []):
-    url = gen.get("img")
-
-   
-    if gen.get("censored") or gen.get("nsfw"):
-        continue
-
-    if url:
-        valid_images.append(url)
-
-if not valid_images:
-    return None
-
-return valid_images[:3]
+        valid_images = []
+        for gen in result_data.get("generations", []):
+            url = gen.get("img")
+            if gen.get("censored") or gen.get("nsfw"):
+                continue
+            if url:
+                valid_images.append(url)
+        if not valid_images:
+            return None
+        return valid_images[:3]
 
     except Exception as e:
         print("image Error:", e)
