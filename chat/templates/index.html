@@ -188,27 +188,35 @@ async function sendMessage() {
 
     document.getElementById(loaderId)?.remove();
 
-    if (data.type === "text") {
-        chatBox.innerHTML += `
-            <div class="message ai">
-                <div class="bubble">${data.data}</div>
-            </div>
-        `;
-    } else {
-        let imagesHTML = "";
+   if (data.type === "error") {
+    chatBox.innerHTML += `
+        <div class="message ai">
+            <div class="bubble">${data.data}</div>
+        </div>
+    `;
+}
+else if (data.type === "text") {
+    chatBox.innerHTML += `
+        <div class="message ai">
+            <div class="bubble">${data.data}</div>
+        </div>
+    `;
+}
+else if (data.type === "image") {
+    let imagesHTML = "";
 
-        data.data.forEach(img => {
-            imagesHTML += `
-                <img src="${img}" onclick="openModal('${img}')" />
-            `;
-        });
-
-        chatBox.innerHTML += `
-            <div class="message ai">
-                <div class="bubble">${imagesHTML}</div>
-            </div>
+    data.data.forEach(img => {
+        imagesHTML += `
+            <img src="${img}" onclick="openModal('${img}')" />
         `;
-    }
+    });
+
+    chatBox.innerHTML += `
+        <div class="message ai">
+            <div class="bubble">${imagesHTML}</div>
+        </div>
+    `;
+}
 
     chatBox.scrollTop = chatBox.scrollHeight;
 }
