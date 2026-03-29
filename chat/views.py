@@ -147,7 +147,7 @@ def generate_images(prompt):
             json={
                 "prompt": final_prompt,
                 "params": {
-                    "n": 3,
+                    "n": 2,
                     "width": 512,
                     "height": 512,
                     "steps": 30,
@@ -182,17 +182,25 @@ def generate_images(prompt):
         )
 
         result_data = result_res.json()
+       valid_images = []
+for gen in result_data.get("generations", []):
+    url = gen.get("img")
 
-        img = [gen["img"] for gen in result_data.get("generations", [])]
+   
+    if gen.get("censored") or gen.get("nsfw"):
+        continue
 
-        if not img:
-            return ["https://via.placeholder.com/512"]
+    if url:
+        valid_images.append(url)
 
-        return img[:3]
+if not valid_images:
+    return None
+
+return valid_images[:3]
 
     except Exception as e:
         print("image Error:", e)
-        return ["https://via.placeholder.com/512"]
+        return None
 
 
 def enhance_prompt(prompt):
