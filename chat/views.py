@@ -189,10 +189,9 @@ def generate_images(prompt):
         img = [gen.get("img") for gen in result_data.get("generations", []) if gen.get("img")]
 
         return img[:3] if img else None
+       except Exception:
+           return None
 
-    except Exception:
-        #logger.exception("Image generation failed")
-        return None
 
 def enhance_prompt(prompt):
     if "real" in prompt.lower() or "photo" in prompt.lower():
