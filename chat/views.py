@@ -19,8 +19,6 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Log if API key is missing
-if not GROQ_API_KEY:
-    #logger.error("GROQ_API_KEY is missing!")
 
 client = Groq(api_key=GROQ_API_KEY)
 
