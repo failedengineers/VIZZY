@@ -61,10 +61,7 @@ def chat_view(request):
 
         # Decide text vs image
         if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw", "visualize",'generate','show','design']):
-            #logger.info("Routing to IMAGE generation")
-             img = generate_images(prompt)
-
-            res = {"type": "image", "data": img}
+            img = generate_images(prompt)
             if not img:
                 
                 return Response({
@@ -77,11 +74,8 @@ def chat_view(request):
            
 
         else:
-            #logger.info("Routing to TEXT generation")
-
+            
             text = generate_text(prompt, chat_memory)
-
-            #logger.info("Generated text: %s", text)
 
             res = {"type": "text", "data": text}
 
