@@ -2,7 +2,6 @@ from django.shortcuts import render
 import os
 import requests
 import time
-import logging
 from dotenv import load_dotenv
 
 from rest_framework.decorators import api_view
@@ -10,22 +9,17 @@ from rest_framework.response import Response
 
 from groq import Groq
 
-# ✅ Logging setup
-#logger = logging.get#logger(__name__)
-
-# Load env variables
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-
-# Log if API key is missing
+#STABLEHORDE_API_KEY = os.getenv("STABLEHORDE_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY)
 
 
 def home(request):
-    #logger.info("Home page accessed")
     return render(request, 'index.html')
+
 
 
 def get_memory(request):
@@ -36,69 +30,47 @@ def save_memory(request, memory):
     request.session["chat_memory"] = memory
 
 
+
 @api_view(['POST'])
 def chat_view(request):
-    try:
-        #logger.info("==== /chat/api/ HIT ====")
-        #logger.info("Request data: %s", request.data)
+    prompt = request.data.get('message')
 
-        prompt = request.data.get('message')
+    if not prompt:
+        return Response({"error": "No message provided"}, status=400)
 
-        if not prompt:
-            #logger.error("No message provided in request")
-            return Response({"error": "No message provided"}, status=400)
+    chat_memory = get_memory(request)
 
-        #logger.info("User prompt: %s", prompt)
 
-        chat_memory = get_memory(request)
+    chat_memory.append({
+        "role": "user",
+        "content": prompt
+    })
 
+    chat_memory = chat_memory[-6:]
+
+    
+    if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw",'create','visualize']):
+        img = generate_images(prompt)
+        res= {"type": "image", "data": img}
+    else:
+        text = generate_text(prompt, chat_memory)
+        res = {"type": "text", "data": text}
+
+        
         chat_memory.append({
-            "role": "user",
-            "content": prompt
+            "role": "assistant",
+            "content": text
         })
 
-        chat_memory = chat_memory[-6:]
+    
+    save_memory(request, chat_memory)
 
-        # Decide text vs image
-        if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw", "visualize",'generate','show','design']):
-            img = generate_images(prompt)
-            if not img:
-                
-                return Response({
-                    "type": "error",
-                    "data": "Oops, some error. Try again."
-                })
-        
-            res = {"type": "image", "data": img}
-            
-           
+    return Response(res)
 
-        else:
-            
-            text = generate_text(prompt, chat_memory)
-
-            res = {"type": "text", "data": text}
-
-            chat_memory.append({
-                "role": "assistant",
-                "content": text
-            })
-
-        save_memory(request, chat_memory)
-
-        #logger.info("Response sent successfully")
-
-        return Response(res)
-
-    except Exception as e:
-        #logger.exception("chat_view crashed")
-        return Response({"error": "Internal Server Error"}, status=500)
 
 
 def generate_text(prompt, chat_memory):
     try:
-        #logger.info("Calling Groq API...")
-
         messages = [
             {
                 "role": "system",
@@ -108,8 +80,6 @@ def generate_text(prompt, chat_memory):
 
         messages.extend(chat_memory)
 
-        #logger.info("Messages payload: %s", messages)
-
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=messages,
@@ -117,31 +87,23 @@ def generate_text(prompt, chat_memory):
             max_tokens=800
         )
 
-        result = completion.choices[0].message.content
-
-        #logger.info("Groq response received")
-
-        return result
+        return completion.choices[0].message.content
 
     except Exception as e:
-        #logger.exception("Groq API failed")
+        print("Groq Error:", e)
         return "something went wrong. please try again."
 
 
 def generate_images(prompt):
-       try:
+    try:
         headers = {
-            "apikey": "0000000000",
+            "apikey":'0000000000',
             "Content-Type": "application/json"
         }
 
-
-        if not headers["apikey"]:
-            #logger.error("Missing STABLEHORDE_API_KEY")
-            return None
-
         final_prompt = enhance_prompt(prompt)
 
+        # submit request
         submit_res = requests.post(
             "https://stablehorde.net/api/v2/generate/async",
             headers=headers,
@@ -151,46 +113,49 @@ def generate_images(prompt):
                     "n": 3,
                     "width": 512,
                     "height": 512,
-                    "steps": 20,
+                    "steps": 30,
                     "cfg_scale": 7
                 }
-            },
-            timeout=20
+            }
         )
 
-        submit_res.raise_for_status()
         submit_data = submit_res.json()
 
-        request_id = submit_data.get("id")
-        if not request_id:
-            return None
+        if "id" not in submit_data:
+            return ["Error submitting request"]
 
-        for _ in range(3):
+        request_id = submit_data["id"]
+
+        # polling
+        for _ in range(15):
             time.sleep(2)
 
             check_res = requests.get(
                 f"https://stablehorde.net/api/v2/generate/check/{request_id}",
-                headers=headers,
-                timeout=15
+                headers=headers
             )
-            check_res.raise_for_status()
 
             if check_res.json().get("done"):
                 break
 
+        
         result_res = requests.get(
             f"https://stablehorde.net/api/v2/generate/status/{request_id}",
-            headers=headers,
-            timeout=20
+            headers=headers
         )
-        result_res.raise_for_status()
 
         result_data = result_res.json()
-        img = [gen.get("img") for gen in result_data.get("generations", []) if gen.get("img")]
 
-        return img[:3] if img else None
-       except Exception:
-           return None
+        img = [gen["img"] for gen in result_data.get("generations", [])]
+
+        if not img:
+            return ["https://via.placeholder.com/512"]
+
+        return img[:3]
+
+    except Exception as e:
+        print("image Error:", e)
+        return ["https://via.placeholder.com/512"]
 
 
 def enhance_prompt(prompt):
@@ -200,3 +165,4 @@ def enhance_prompt(prompt):
         style = "digital art, cinematic lighting, ultra detailed, artstation style"
 
     return f"{prompt}, {style}, high quality, masterpiece"
+
