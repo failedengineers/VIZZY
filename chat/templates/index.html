@@ -142,6 +142,9 @@
     <input type="text" id="input" placeholder="Ask anything..." />
     <button onclick="sendMessage()">Send</button>
 </div>
+<div id="modal" onclick="closeModal()">
+    <img id="modal-img" />
+</div>
 
 
 
@@ -227,6 +230,14 @@ function openModal(src) {
     document.getElementById("modal").style.display = "flex";
     document.getElementById("modal-img").src = src;
     document.getElementById("download-btn").setAttribute("data-src", src);
+}
+
+function closeModal() {
+    document.getElementById("modal").style.display = "none";
+}
+function openModal(src) {
+    document.getElementById("modal").style.display = "flex";
+    document.getElementById("modal-img").src = src;
 }
 
 function closeModal() {
