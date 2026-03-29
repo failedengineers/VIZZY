@@ -134,7 +134,7 @@ def generate_images(prompt):
             "apikey": "0000000000",
             "Content-Type": "application/json"
         }
-}
+
 
         if not headers["apikey"]:
             #logger.error("Missing STABLEHORDE_API_KEY")
