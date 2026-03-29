@@ -143,11 +143,7 @@
     <button onclick="sendMessage()">Send</button>
 </div>
 
-<!-- Modal -->
-<div id="modal" onclick="closeModal()">
-    <img id="modal-img" />
-    <button id="download-btn" onclick="downloadImage(event)">Download</button>
-</div>
+
 
 <script>
 async function sendMessage() {
@@ -237,29 +233,7 @@ function closeModal() {
     document.getElementById("modal").style.display = "none";
 }
 
-async function downloadImage(event) {
-    event.stopPropagation();
 
-    let src = document.getElementById("download-btn").getAttribute("data-src");
-
-    try {
-        let response = await fetch(src);
-        let blob = await response.blob();
-
-        let url = window.URL.createObjectURL(blob);
-
-        let a = document.createElement("a");
-        a.href = url;
-        a.download = "vizzy-image.png";
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-
-        window.URL.revokeObjectURL(url);
-    } catch (err) {
-        alert("Download failed. Try again.");
-    }
-}
 </script>
 
 </body>
