@@ -56,7 +56,8 @@ def chat_view(request):
         if img:
             res = {"type": "image", "data": img}
         else:
-            res = {"type": "error", "data": "Image not generated"}
+            res = {"type": "error",
+                   "data": "Server is busy, try again in few seconds"}
     else:
         text = generate_text(prompt, chat_memory)
         res = {"type": "text", "data": text}
@@ -166,8 +167,8 @@ def generate_images(prompt):
         print("SUBMIT:", submit_data)
 
         if "id" not in submit_data:
-        print("Submit Error:", submit_data)
-        return None
+            print("Submit Error:", submit_data)
+            return None
 
         request_id = submit_data["id"]
         for _ in range(20):
