@@ -139,15 +139,8 @@ Rules:
 
 def generate_images(prompt):
     try:
-        import base64
-
         ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
         API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
-
-        # ❌ if env missing → stop
-        if not ACCOUNT_ID or not API_TOKEN:
-            print("ENV ERROR: Missing Cloudflare keys")
-            return None
 
         url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
 
@@ -156,41 +149,23 @@ def generate_images(prompt):
             "Content-Type": "application/json"
         }
 
-        data = {
-            "prompt": f"{prompt}, high quality"
-        }
+        response = requests.post(
+            url,
+            headers=headers,
+            json={"prompt": prompt}
+        )
 
-        # ⏳ API CALL
-        response = requests.post(url, headers=headers, json=data, timeout=120)
+        # ❗ IMPORTANT: Cloudflare returns image directly (not JSON)
+        if response.status_code == 200:
+            import base64
+            image_base64 = base64.b64encode(response.content).decode("utf-8")
+            return [f"data:image/png;base64,{image_base64}"]
 
-        print("STATUS:", response.status_code)
-
-        # ❌ error from API
-        if response.status_code != 200:
-            print("ERROR:", response.text[:200])
-            return None
-
-        # ✅ TRY JSON FIRST
-        try:
-            result = response.json()
-
-            # success case
-            if "result" in result and "image" in result["result"]:
-                img = result["result"]["image"]
-                return [f"data:image/png;base64,{img}"]
-
-        except:
-            pass  # not json → continue
-
-        # ✅ HANDLE RAW IMAGE (important)
-        if response.content:
-            img = base64.b64encode(response.content).decode("utf-8")
-            return [f"data:image/png;base64,{img}"]
-
+        print("CF ERROR:", response.status_code, response.text)
         return None
 
     except Exception as e:
-        print("CF ERROR:", e)
+        print("CF Exception:", e)
         return None
 
 def enhance_prompt(prompt):
