@@ -159,6 +159,9 @@ def generate_images(prompt):
                     "height": 512,
                     "steps": 15,
                     "cfg_scale": 7
+                    "nsfw": False,
+                    "censor_nsfw": True,
+                    "trusted_workers": False
                 }
             }
         )
@@ -171,9 +174,9 @@ def generate_images(prompt):
             return None
 
         request_id = submit_data["id"]
-        for _ in range(20):
+        for _ in range(40):
             
-            time.sleep(2)
+            time.sleep(1)
             check_res = requests.get(f"https://stablehorde.net/api/v2/generate/status/{request_id}",headers=headers).json()
             if check_res.get("done"):
                 break
@@ -204,10 +207,5 @@ def generate_images(prompt):
 
 
 def enhance_prompt(prompt):
-    if "real" in prompt.lower() or "photo" in prompt.lower():
-        style = "photorealistic, DSLR, 8k, natural lighting"
-    else:
-        style = "digital art, cinematic lighting, ultra detailed, artstation style"
-
-    return f"{prompt}, {style}, high quality, masterpiece"
+    return f"{prompt}, high quality"
 
