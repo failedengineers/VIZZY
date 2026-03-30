@@ -14,7 +14,7 @@ from groq import Groq
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 STABLEHORDE_API_KEY = os.getenv("STABLE_HORDE_API_KEY")
-print("API KEY:", STABLEHORDE_API_KEY)
+##print("API KEY:", STABLEHORDE_API_KEY)
 
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -133,7 +133,7 @@ Rules:
         return completion.choices[0].message.content
 
     except Exception as e:
-        print("Groq Error:", e)
+        #print("Groq Error:", e)
         return "something went wrong. please try again."
 
 
@@ -164,10 +164,10 @@ def generate_images(prompt):
         )
 
         submit_data = submit_res.json()
-        print("SUBMIT:", submit_data)
+        #print("SUBMIT:", submit_data)
 
         if "id" not in submit_data:
-            print("Submit Error:", submit_data)
+            #print("Submit Error:", submit_data)
             return None
 
         request_id = submit_data["id"]
@@ -185,7 +185,7 @@ def generate_images(prompt):
         )
 
         result_data = result_res.json()
-        print("RESULT:", result_data)
+        #print("RESULT:", result_data)
 
         valid_images = []
         for gen in result_data.get("generations", []):
@@ -199,7 +199,7 @@ def generate_images(prompt):
         return valid_images[:3]
 
     except Exception as e:
-        print("image Error:", e)
+        #print("image Error:", e)
         return None
 
 
