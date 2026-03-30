@@ -158,7 +158,7 @@ def generate_images(prompt):
                     "width": 512,
                     "height": 512,
                     "steps": 15,
-                    "cfg_scale": 7
+                    "cfg_scale": 7,
                     "nsfw": False,
                     "censor_nsfw": True,
                     "trusted_workers": False
