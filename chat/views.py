@@ -154,6 +154,8 @@ def generate_images(prompt):
         }
 
         response = requests.post(url, headers=headers, json=data)
+        print("STATUS:", response.status_code)
+        print("TEXT:", response.text)
         result = response.json()
 
         if "result" in result and "image" in result["result"]:
