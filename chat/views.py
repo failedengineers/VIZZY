@@ -157,7 +157,7 @@ def generate_images(prompt):
                     "n": 2,
                     "width": 512,
                     "height": 512,
-                    "steps": 30,
+                    "steps": 15,
                     "cfg_scale": 7
                 }
             }
