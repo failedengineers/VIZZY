@@ -161,11 +161,11 @@ def generate_images(prompt):
             image_base64 = base64.b64encode(response.content).decode("utf-8")
             return [f"data:image/png;base64,{image_base64}"]
 
-        print("CF ERROR:", response.status_code, response.text)
+        #print("CF ERROR:", response.status_code, response.text)
         return None
 
     except Exception as e:
-        print("CF Exception:", e)
+        #print("CF Exception:", e)
         return None
 
 def enhance_prompt(prompt):
