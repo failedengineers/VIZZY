@@ -142,6 +142,10 @@ def generate_images(prompt):
         ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
         API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
 
+        if not ACCOUNT_ID or not API_TOKEN:
+            print("ENV ERROR: Missing Cloudflare credentials")
+            return None
+
         url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
 
         headers = {
@@ -154,14 +158,23 @@ def generate_images(prompt):
         }
 
         response = requests.post(url, headers=headers, json=data)
+
         print("STATUS:", response.status_code)
-        print("TEXT:", response.text)
-        result = response.json()
+        print("RAW:", response.text[:200])  # only first 200 chars
+
+        # ✅ SAFE JSON PARSE
+        try:
+            result = response.json()
+        except:
+            return None
+
+        # ✅ CHECK SUCCESS
+        if response.status_code != 200:
+            print("Cloudflare Error:", result)
+            return None
 
         if "result" in result and "image" in result["result"]:
-            import base64
             image_base64 = result["result"]["image"]
-
             return [f"data:image/png;base64,{image_base64}"]
 
         return None
