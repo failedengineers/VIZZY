@@ -139,70 +139,33 @@ Rules:
 
 def generate_images(prompt):
     try:
+        ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
+
+        url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
+
         headers = {
-            "apikey": STABLEHORDE_API_KEY,
-            "Client-Agent": "vizzy-app:1.0",
+            "Authorization": f"Bearer {API_TOKEN}",
             "Content-Type": "application/json"
         }
 
-        final_prompt = enhance_prompt(prompt)
+        data = {
+            "prompt": prompt
+        }
 
-        # submit request
-        submit_res = requests.post(
-            "https://stablehorde.net/api/v2/generate/async",
-            headers=headers,
-            json={
-                "prompt": final_prompt,
-                "params": {
-                    "n": 2,
-                    "width": 512,
-                    "height": 512,
-                    "steps": 15,
-                    "cfg_scale": 7,
-                    "nsfw": False,
-                    "censor_nsfw": True,
-                    "trusted_workers": False
-                }
-            }
-        )
+        response = requests.post(url, headers=headers, json=data)
+        result = response.json()
 
-        submit_data = submit_res.json()
-        #print("SUBMIT:", submit_data)
+        if "result" in result and "image" in result["result"]:
+            import base64
+            image_base64 = result["result"]["image"]
 
-        if "id" not in submit_data:
-            #print("Submit Error:", submit_data)
-            return None
+            return [f"data:image/png;base64,{image_base64}"]
 
-        request_id = submit_data["id"]
-        for _ in range(40):
-            
-            time.sleep(1)
-            check_res = requests.get(f"https://stablehorde.net/api/v2/generate/status/{request_id}",headers=headers).json()
-            if check_res.get("done"):
-                break
-
-        
-        result_res = requests.get(
-            f"https://stablehorde.net/api/v2/generate/status/{request_id}",
-            headers=headers
-        )
-
-        result_data = result_res.json()
-        #print("RESULT:", result_data)
-
-        valid_images = []
-        for gen in result_data.get("generations", []):
-            url = gen.get("img")
-            if gen.get("censored") or gen.get("nsfw"):
-                continue
-            if url:
-                valid_images.append(url)
-        if not valid_images:
-            return None
-        return valid_images[:3]
+        return None
 
     except Exception as e:
-        #print("image Error:", e)
+        print("CF Error:", e)
         return None
 
 
