@@ -4,6 +4,7 @@ import requests
 import time
 from dotenv import load_dotenv
 
+
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
@@ -12,7 +13,7 @@ from groq import Groq
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-#STABLEHORDE_API_KEY = os.getenv("STABLEHORDE_API_KEY")
+STABLEHORDE_API_KEY = os.getenv("STABLE_HORDE_API_KEY")
 
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -51,7 +52,10 @@ def chat_view(request):
     
     if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw",'create','visualize']):
         img = generate_images(prompt)
-        res= {"type": "image", "data": img}
+        if img:
+            res = {"type": "image", "data": img}
+        else:
+            res = {"type": "error", "data": "Image not generated"}
     else:
         text = generate_text(prompt, chat_memory)
         res = {"type": "text", "data": text}
@@ -134,7 +138,8 @@ Rules:
 def generate_images(prompt):
     try:
         headers = {
-            "apikey":'0000000000',
+            "apikey": STABLEHORDE_API_KEY,
+            "Client-Agent": "vizzy-app:1.0",
             "Content-Type": "application/json"
         }
 
@@ -164,16 +169,13 @@ def generate_images(prompt):
         request_id = submit_data["id"]
 
         # polling
-        for _ in range(15):
-            time.sleep(2)
-
-            check_res = requests.get(
-                f"https://stablehorde.net/api/v2/generate/check/{request_id}",
-                headers=headers
-            )
-
-            if check_res.json().get("done"):
-                break
+       for _ in range(20):
+           time.sleep(2)
+           check_res = requests.get(
+                f"https://stablehorde.net/api/v2/generate/status/{request_id}",
+                headers=headers).json()
+           if check_res.get("done"):
+               break
 
         
         result_res = requests.get(
