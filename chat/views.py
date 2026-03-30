@@ -10,10 +10,11 @@ from rest_framework.response import Response
 
 from groq import Groq
 
-load_dotenv()
+
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 STABLEHORDE_API_KEY = os.getenv("STABLE_HORDE_API_KEY")
+print("API KEY:", STABLEHORDE_API_KEY)
 
 client = Groq(api_key=GROQ_API_KEY)
 
@@ -162,20 +163,19 @@ def generate_images(prompt):
         )
 
         submit_data = submit_res.json()
+        print("SUBMIT:", submit_data)
 
         if "id" not in submit_data:
-            return ["Error submitting request"]
+        print("Submit Error:", submit_data)
+        return None
 
         request_id = submit_data["id"]
-
-        # polling
-       for _ in range(20):
-           time.sleep(2)
-           check_res = requests.get(
-                f"https://stablehorde.net/api/v2/generate/status/{request_id}",
-                headers=headers).json()
-           if check_res.get("done"):
-               break
+        for _ in range(20):
+            
+            time.sleep(2)
+            check_res = requests.get(f"https://stablehorde.net/api/v2/generate/status/{request_id}",headers=headers).json()
+            if check_res.get("done"):
+                break
 
         
         result_res = requests.get(
@@ -184,6 +184,8 @@ def generate_images(prompt):
         )
 
         result_data = result_res.json()
+        print("RESULT:", result_data)
+
         valid_images = []
         for gen in result_data.get("generations", []):
             url = gen.get("img")
