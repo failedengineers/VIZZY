@@ -139,60 +139,58 @@ Rules:
 
 def generate_images(prompt):
     try:
-        if not CLOUDFLARE_ACCOUNT_ID or not CLOUDFLARE_API_TOKEN:
+        import base64
+
+        ACCOUNT_ID = os.getenv("CLOUDFLARE_ACCOUNT_ID")
+        API_TOKEN = os.getenv("CLOUDFLARE_API_TOKEN")
+
+        # ❌ if env missing → stop
+        if not ACCOUNT_ID or not API_TOKEN:
+            print("ENV ERROR: Missing Cloudflare keys")
             return None
 
-        url = (
-            f"https://api.cloudflare.com/client/v4/accounts/"
-            f"{CLOUDFLARE_ACCOUNT_ID}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
-        )
+        url = f"https://api.cloudflare.com/client/v4/accounts/{ACCOUNT_ID}/ai/run/@cf/stabilityai/stable-diffusion-xl-base-1.0"
 
         headers = {
-            "Authorization": f"Bearer {CLOUDFLARE_API_TOKEN}",
-            "Content-Type": "application/json",
+            "Authorization": f"Bearer {API_TOKEN}",
+            "Content-Type": "application/json"
         }
 
         data = {
-            "prompt": enhance_prompt(prompt)
+            "prompt": f"{prompt}, high quality"
         }
 
+        # ⏳ API CALL
         response = requests.post(url, headers=headers, json=data, timeout=120)
 
+        print("STATUS:", response.status_code)
+
+        # ❌ error from API
         if response.status_code != 200:
+            print("ERROR:", response.text[:200])
             return None
 
-        content_type = response.headers.get("content-type", "")
+        # ✅ TRY JSON FIRST
+        try:
+            result = response.json()
 
-        # Case 1: Cloudflare returns JSON with base64 image
-        if "application/json" in content_type:
-            try:
-                result = response.json()
-            except Exception:
-                return None
+            # success case
+            if "result" in result and "image" in result["result"]:
+                img = result["result"]["image"]
+                return [f"data:image/png;base64,{img}"]
 
-            if not result.get("success", True):
-                return None
+        except:
+            pass  # not json → continue
 
-            if "result" in result and isinstance(result["result"], dict):
-                image_b64 = result["result"].get("image")
-                if image_b64:
-                    return [f"data:image/png;base64,{image_b64}"]
-
-            if "image" in result:
-                image_b64 = result.get("image")
-                if image_b64:
-                    return [f"data:image/png;base64,{image_b64}"]
-
-            return None
-
-        # Case 2: Cloudflare returns raw image bytes
+        # ✅ HANDLE RAW IMAGE (important)
         if response.content:
-            image_b64 = base64.b64encode(response.content).decode("utf-8")
-            return [f"data:image/png;base64,{image_b64}"]
+            img = base64.b64encode(response.content).decode("utf-8")
+            return [f"data:image/png;base64,{img}"]
 
         return None
 
-    except Exception:
+    except Exception as e:
+        print("CF ERROR:", e)
         return None
 
 def enhance_prompt(prompt):
