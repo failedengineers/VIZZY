@@ -47,34 +47,35 @@ def save_last_prompt(request, prompt):
 
 def decide_intent(prompt, chat_memory, last_prompt):
     try:
+        p = prompt.lower().strip()
+
+        # TEXT FIRST: these should never become image
+        text_first_words = [
+            "story", "write", "poem", "caption", "explain", "answer",
+            "narrate", "tell me", "short story", "long story", "essay"
+        ]
+        if any(word in p for word in text_first_words):
+            return "text"
+
         messages = [
             {
                 "role": "system",
                 "content": """
-You are an intent classifier for a creative assistant.
+You are an intent classifier.
 
 Return ONLY one word:
 image OR text
 
-Use image if the user is asking for:
-- any visual output (art, image, design, poster, scene, drawing, illustration)
-- transformations (turn this into, make it look like, style change)
-- variations (create more, another version, refine, improve, make it better)
-- anything that should be seen visually instead of explained
+Return image only for visual output:
+art, image, photo, picture, poster, design, drawing, illustration,
+style change, visual transformation, create more, another version, refine image.
 
-Use text if the user is asking for:
-- conversation, greeting, explanation
-- story, caption, idea, message, or answer
-- anything that should be written, not generated as an image
+Return text for:
+story, short story, write, poem, caption, explanation, answer, narration, chat.
 
-If the user refers to a previous image → always return image
+If the user asks for a story, return text even if the word create is present.
 
-If unsure → return text
-
-Return ONLY:
-image
-OR
-text
+If unsure, return text.
 """
             },
             {
@@ -95,15 +96,10 @@ Previous image prompt: {last_prompt}
         )
 
         decision = res.choices[0].message.content.lower().strip()
-
-        if "image" in decision:
-            return "image"
-        return "text"
+        return "image" if "image" in decision else "text"
 
     except:
         return "text"
-
-
 
 # MODIFY YOUR chat_view ONLY (core logic upgrade)
 
