@@ -49,42 +49,51 @@ def decide_intent(prompt, chat_memory, last_prompt):
     try:
         p = prompt.lower().strip()
 
-        # TEXT FIRST: these should never become image
-        text_first_words = [
-            "story", "write", "poem", "caption", "explain", "answer",
-            "narrate", "tell me", "short story", "long story", "essay"
+        # 🔥 STRONG TEXT RULES (only when clearly writing)
+        pure_text_words = [
+            "write", "explain", "answer", "essay"
         ]
-        if any(word in p for word in text_first_words):
+        if any(word in p for word in pure_text_words):
             return "text"
 
+        # 🔥 STORY SHOULD BE TEXT ONLY IF NO VISUAL INTENT
+        if "story" in p:
+            if any(x in p for x in ["visualize", "show", "create image", "illustrate", "scene", "draw"]):
+                return "image"
+            return "text"
+
+        # 🔥 STRONG IMAGE RULES (VERY IMPORTANT)
+        image_force_words = [
+            "visualize", "show", "image", "picture", "poster",
+            "draw", "illustrate", "scene", "design", "render"
+        ]
+        if any(word in p for word in image_force_words):
+            return "image"
+
+        # 🔥 REFINEMENT (memory based)
+        if last_prompt and any(x in p for x in [
+            "make it", "refine", "improve", "another", "more like this"
+        ]):
+            return "image"
+
+        # 🔥 LLM fallback (smart understanding)
         messages = [
             {
                 "role": "system",
                 "content": """
-You are an intent classifier.
-
-Return ONLY one word:
+Return ONLY:
 image OR text
 
-Return image only for visual output:
-art, image, photo, picture, poster, design, drawing, illustration,
-style change, visual transformation, create more, another version, refine image.
+Image = anything visual or scene-based
+Text = anything written or explanation
 
-Return text for:
-story, short story, write, poem, caption, explanation, answer, narration, chat.
-
-If the user asks for a story, return text even if the word create is present.
-
-If unsure, return text.
+If user wants to SEE something → image
+If user wants to READ something → text
 """
             },
             {
                 "role": "user",
-                "content": f"""
-User: {prompt}
-
-Previous image prompt: {last_prompt}
-"""
+                "content": prompt
             }
         ]
 
@@ -96,11 +105,14 @@ Previous image prompt: {last_prompt}
         )
 
         decision = res.choices[0].message.content.lower().strip()
-        return "image" if "image" in decision else "text"
+
+        if "image" in decision:
+            return "image"
+
+        return "text"
 
     except:
         return "text"
-
 # MODIFY YOUR chat_view ONLY (core logic upgrade)
 
 @api_view(['POST'])
