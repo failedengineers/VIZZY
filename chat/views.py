@@ -33,6 +33,65 @@ def save_memory(request, memory):
 
 
 
+def get_last_prompt(request):
+    return request.session.get("last_image_prompt", "")
+
+def save_last_prompt(request, prompt):
+    request.session["last_image_prompt"] = prompt
+
+
+
+def decide_intent(prompt, chat_memory, last_prompt):
+    try:
+        messages = [
+            {
+                "role": "system",
+                "content": """
+You are an intent classifier.
+
+Return ONLY one word:
+image OR text
+
+Use image if the user wants:
+- visuals, art, design, poster, image, drawing
+- variations like "create more", "another version", "make it better"
+
+Use text if the user wants:
+- chat, explanation, story, caption, idea, answer
+
+If unsure, return text.
+"""
+            },
+            {
+                "role": "user",
+                "content": f"""
+User: {prompt}
+
+Previous image prompt: {last_prompt}
+"""
+            }
+        ]
+
+        res = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=messages,
+            temperature=0,
+            max_tokens=5
+        )
+
+        decision = res.choices[0].message.content.lower().strip()
+
+        if "image" in decision:
+            return "image"
+        return "text"
+
+    except:
+        return "text"
+
+
+
+# MODIFY YOUR chat_view ONLY (core logic upgrade)
+
 @api_view(['POST'])
 def chat_view(request):
     prompt = request.data.get('message')
@@ -41,7 +100,7 @@ def chat_view(request):
         return Response({"error": "No message provided"}, status=400)
 
     chat_memory = get_memory(request)
-
+    last_prompt = get_last_prompt(request)
 
     chat_memory.append({
         "role": "user",
@@ -50,27 +109,47 @@ def chat_view(request):
 
     chat_memory = chat_memory[-6:]
 
-    
-    if any(word in prompt.lower() for word in ["image", "paint", "visual", "art", "draw",'create','visualize']):
-        img = generate_images(prompt)
+    # 🔥 LLM INTENT (NO KEYWORDS NOW)
+    intent = decide_intent(prompt, chat_memory, last_prompt)
+
+    # -------- IMAGE FLOW --------
+    if intent == "image":
+
+        # 🔥 combine old + new prompt (NO image editing)
+        if last_prompt:
+            final_prompt = f"""
+Previous image idea:
+{last_prompt}
+
+Now modify or extend it with:
+{prompt}
+
+Keep style and concept consistent.
+"""
+        else:
+            final_prompt = prompt
+
+        img = generate_images(final_prompt)
+
         if img:
+            save_last_prompt(request, final_prompt)   # 🔥 store new prompt
             res = {"type": "image", "data": img}
         else:
             res = {"type": "error",
-                   "data": "Server is busy, try again in few seconds"}
+                   "data": "Server busy, try again"}
+
+    # -------- TEXT FLOW --------
     else:
         text = generate_text(prompt, chat_memory)
+
         res = {"type": "text", "data": text}
 
-        
         chat_memory.append({
             "role": "assistant",
             "content": text
         })
 
-    
     save_memory(request, chat_memory)
-
     return Response(res)
 
 
@@ -155,7 +234,6 @@ def generate_images(prompt):
             json={"prompt": prompt}
         )
 
-        # ❗ IMPORTANT: Cloudflare returns image directly (not JSON)
         if response.status_code == 200:
             import base64
             image_base64 = base64.b64encode(response.content).decode("utf-8")
