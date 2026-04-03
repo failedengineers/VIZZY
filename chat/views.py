@@ -21,6 +21,7 @@ client = Groq(api_key=GROQ_API_KEY)
 
 
 def home(request):
+     request.session.flush()
     return render(request, 'index.html')
 
 
