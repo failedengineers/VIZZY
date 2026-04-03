@@ -3,6 +3,7 @@ import os
 import requests
 import time
 from dotenv import load_dotenv
+load_dotenv()
 
 
 from rest_framework.decorators import api_view
@@ -30,6 +31,7 @@ def get_memory(request):
 
 def save_memory(request, memory):
     request.session["chat_memory"] = memory
+    request.session.modified = True
 
 
 
@@ -38,6 +40,8 @@ def get_last_prompt(request):
 
 def save_last_prompt(request, prompt):
     request.session["last_image_prompt"] = prompt
+    request.session.modified = True
+
 
 
 
@@ -47,19 +51,30 @@ def decide_intent(prompt, chat_memory, last_prompt):
             {
                 "role": "system",
                 "content": """
-You are an intent classifier.
+You are an intent classifier for a creative assistant.
 
 Return ONLY one word:
 image OR text
 
-Use image if the user wants:
-- visuals, art, design, poster, image, drawing
-- variations like "create more", "another version", "make it better"
+Use image if the user is asking for:
+- any visual output (art, image, design, poster, scene, drawing, illustration)
+- transformations (turn this into, make it look like, style change)
+- variations (create more, another version, refine, improve, make it better)
+- anything that should be seen visually instead of explained
 
-Use text if the user wants:
-- chat, explanation, story, caption, idea, answer
+Use text if the user is asking for:
+- conversation, greeting, explanation
+- story, caption, idea, message, or answer
+- anything that should be written, not generated as an image
 
-If unsure, return text.
+If the user refers to a previous image → always return image
+
+If unsure → return text
+
+Return ONLY:
+image
+OR
+text
 """
             },
             {
@@ -132,13 +147,12 @@ Keep style and concept consistent.
         img = generate_images(final_prompt)
 
         if img:
-            save_last_prompt(request, final_prompt)   # 🔥 store new prompt
+            save_last_prompt(request,prompt)  
             res = {"type": "image", "data": img}
         else:
             res = {"type": "error",
                    "data": "Server busy, try again"}
 
-    # -------- TEXT FLOW --------
     else:
         text = generate_text(prompt, chat_memory)
 
