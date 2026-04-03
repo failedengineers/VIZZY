@@ -22,7 +22,7 @@ client = Groq(api_key=GROQ_API_KEY)
 
 def home(request):
      request.session.flush()
-    return render(request, 'index.html')
+     return render(request, 'index.html')
 
 
 
@@ -50,20 +50,17 @@ def decide_intent(prompt, chat_memory, last_prompt):
     try:
         p = prompt.lower().strip()
 
-        # 🔥 STRONG TEXT RULES (only when clearly writing)
         pure_text_words = [
             "write", "explain", "answer", "essay"
         ]
         if any(word in p for word in pure_text_words):
             return "text"
 
-        # 🔥 STORY SHOULD BE TEXT ONLY IF NO VISUAL INTENT
         if "story" in p:
             if any(x in p for x in ["visualize", "show", "create image", "illustrate", "scene", "draw"]):
                 return "image"
             return "text"
 
-        # 🔥 STRONG IMAGE RULES (VERY IMPORTANT)
         image_force_words = [
             "visualize", "show", "image", "picture", "poster",
             "draw", "illustrate", "scene", "design", "render"
@@ -71,13 +68,11 @@ def decide_intent(prompt, chat_memory, last_prompt):
         if any(word in p for word in image_force_words):
             return "image"
 
-        # 🔥 REFINEMENT (memory based)
         if last_prompt and any(x in p for x in [
             "make it", "refine", "improve", "another", "more like this"
         ]):
             return "image"
 
-        # 🔥 LLM fallback (smart understanding)
         messages = [
             {
                 "role": "system",
@@ -135,7 +130,6 @@ def chat_view(request):
 
     intent = decide_intent(prompt, chat_memory, last_prompt)
 
-    # -------- IMAGE FLOW --------
     if intent == "image":
 
         final_prompt = ""
