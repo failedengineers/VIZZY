@@ -130,42 +130,37 @@ def chat_view(request):
 
     intent = decide_intent(prompt, chat_memory, last_prompt)
 
+    # -------- IMAGE FLOW --------
     if intent == "image":
+        final_prompt = ""
+        p = prompt.lower()
 
-    final_prompt = ""
+        use_story = any(x in p for x in ["this", "that", "above", "story", "previous"])
 
-    p = prompt.lower()
+        last_text = None
+        for msg in reversed(chat_memory):
+            if msg["role"] == "assistant":
+                last_text = msg["content"]
+                break
 
-    # 🔥 ONLY use story if user refers to it
-    use_story = any(x in p for x in [
-        "this", "that", "above", "story", "previous"
-    ])
-
-    last_text = None
-    for msg in reversed(chat_memory):
-        if msg["role"] == "assistant":
-            last_text = msg["content"]
-            break
-
-    if use_story and last_text:
-        final_prompt = f"""
+        if use_story and last_text:
+            final_prompt = f"""
 Create a visual scene from this:
 
 {last_text}
 
 cinematic, detailed, realistic lighting
 """
-    else:
-        final_prompt = prompt   # 🔥 clean new request
+        else:
+            final_prompt = prompt
 
-    img = generate_images(final_prompt)
+        img = generate_images(final_prompt)
 
-    if img:
-        res = {"type": "image", "data": img}
-    else:
-        res = {"type": "error", "data": "Server busy"}
+        if img:
+            res = {"type": "image", "data": img}
+        else:
+            res = {"type": "error", "data": "Server busy"}
 
-    # -------- TEXT FLOW --------
     else:
         text = generate_text(prompt, chat_memory)
 
