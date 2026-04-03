@@ -132,33 +132,38 @@ def chat_view(request):
 
     if intent == "image":
 
-        final_prompt = ""
+    final_prompt = ""
 
-        # 🔥 find last assistant message (NOT last item)
-        last_text = None
-        for msg in reversed(chat_memory):
-            if msg["role"] == "assistant":
-                last_text = msg["content"]
-                break
+    p = prompt.lower()
 
-        if last_text:
-            final_prompt = f"""
+    # 🔥 ONLY use story if user refers to it
+    use_story = any(x in p for x in [
+        "this", "that", "above", "story", "previous"
+    ])
+
+    last_text = None
+    for msg in reversed(chat_memory):
+        if msg["role"] == "assistant":
+            last_text = msg["content"]
+            break
+
+    if use_story and last_text:
+        final_prompt = f"""
 Create a visual scene from this:
 
 {last_text}
 
 cinematic, detailed, realistic lighting
 """
-        else:
-            final_prompt = prompt
+    else:
+        final_prompt = prompt   # 🔥 clean new request
 
-        img = generate_images(final_prompt)
+    img = generate_images(final_prompt)
 
-        if img:
-            save_last_prompt(request, prompt)
-            res = {"type": "image", "data": img}
-        else:
-            res = {"type": "error", "data": "Server busy, try again"}
+    if img:
+        res = {"type": "image", "data": img}
+    else:
+        res = {"type": "error", "data": "Server busy"}
 
     # -------- TEXT FLOW --------
     else:
