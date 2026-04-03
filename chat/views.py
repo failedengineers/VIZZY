@@ -113,7 +113,7 @@ If user wants to READ something → text
 
     except:
         return "text"
-# MODIFY YOUR chat_view ONLY (core logic upgrade)
+
 
 @api_view(['POST'])
 def chat_view(request):
@@ -132,22 +132,27 @@ def chat_view(request):
 
     chat_memory = chat_memory[-6:]
 
-    # 🔥 LLM INTENT (NO KEYWORDS NOW)
     intent = decide_intent(prompt, chat_memory, last_prompt)
 
     # -------- IMAGE FLOW --------
     if intent == "image":
 
-        # 🔥 combine old + new prompt (NO image editing)
-        if last_prompt:
+        final_prompt = ""
+
+        # 🔥 find last assistant message (NOT last item)
+        last_text = None
+        for msg in reversed(chat_memory):
+            if msg["role"] == "assistant":
+                last_text = msg["content"]
+                break
+
+        if last_text:
             final_prompt = f"""
-Previous image idea:
-{last_prompt}
+Create a visual scene from this:
 
-Now modify or extend it with:
-{prompt}
+{last_text}
 
-Keep style and concept consistent.
+cinematic, detailed, realistic lighting
 """
         else:
             final_prompt = prompt
@@ -155,12 +160,12 @@ Keep style and concept consistent.
         img = generate_images(final_prompt)
 
         if img:
-            save_last_prompt(request,prompt)  
+            save_last_prompt(request, prompt)
             res = {"type": "image", "data": img}
         else:
-            res = {"type": "error",
-                   "data": "Server busy, try again"}
+            res = {"type": "error", "data": "Server busy, try again"}
 
+    # -------- TEXT FLOW --------
     else:
         text = generate_text(prompt, chat_memory)
 
@@ -173,7 +178,6 @@ Keep style and concept consistent.
 
     save_memory(request, chat_memory)
     return Response(res)
-
 
 
 def generate_text(prompt, chat_memory):
