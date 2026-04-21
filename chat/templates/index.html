@@ -686,8 +686,7 @@
                 <button class="sidebar-btn" onclick="newChat()">➕ New Chat</button>
                 <button class="sidebar-btn" onclick="toggleTheme()" id="theme-btn-sidebar">🌙 Dark</button>
                 
-                ondblclick="renameChat('${chat.id}')"
-                <button onclick="deleteChat('${chat.id}')">🗑</button>
+                
             </div>
         </div>
 
@@ -837,109 +836,100 @@
         return chats.find(c => c.id === currentChatId) || null;
     }
 
+    
+
     function renderChatList() {
-        const list = document.getElementById("chat-list");
-        list.innerHTML = "";
+    const list = document.getElementById("chat-list");
+    list.innerHTML = "";
 
-        if (!chats.length) {
-            list.innerHTML = `
-                <div class="empty-state" style="padding:16px; text-align:left;">
-                    <h3 style="font-size:15px; margin-bottom:6px;">No chats yet</h3>
-                    <p style="font-size:12px; margin:0;">Start a new conversation from the button above.</p>
-                </div>
-            `;
-            return;
-        }
-
-        chats.forEach(chat => {
-            
-            const title = chat.title || "New Chat";
-            const active = chat.id === currentChatId ? "active" : "";
-
-            const item = document.createElement("div");
-            item.className = `chat-item ${active}`;
-            item.onclick = () => switchChat(chat.id);
-            item.innerHTML = `
-                <p class="chat-title">${escapeHTML(title)}</p>
-                
-            `;
-            list.appendChild(item);
-        });
+    if (!chats.length) {
+        list.innerHTML = `
+            <div class="empty-state" style="padding:16px; text-align:left;">
+                <h3 style="font-size:15px; margin-bottom:6px;">No chats yet</h3>
+                <p style="font-size:12px; margin:0;">Start a new conversation from the button above.</p>
+            </div>
+        `;
+        return;
     }
 
+    chats.forEach(chat => {
+        const title = chat.title || "New Chat";
+        const active = chat.id === currentChatId ? "active" : "";
+
+        const item = document.createElement("div");
+        item.className = `chat-item ${active}`;
+        item.onclick = () => switchChat(chat.id);
+        item.ondblclick = () => renameChat(chat.id);
+
+       item.innerHTML = `
+    <p class="chat-title">${escapeHTML(title)}</p>
+    <button class="delete-btn" 
+        style="margin-top:8px; padding:8px 10px;">
+        Delete
+    </button>
+`;
+
+item.querySelector(".delete-btn").addEventListener("click", (e) => {
+    e.stopPropagation();
+    deleteChat(chat.id);
+});
+        list.appendChild(item);
+    });
+}
     function renderCurrentChat() {
-        const chatBox = document.getElementById("chat-box");
-        const chat = getCurrentChat();
+    const chat = getCurrentChat();
+    const chatBox = document.getElementById("chat-box");
 
-        if (!chat) {
-            chatBox.innerHTML = `
-                <div class="empty-state">
-                    <h3>Start a new chat</h3>
-                    <p>Use the chips or type a prompt to create stories, visuals, and business content.</p>
+    chatBox.innerHTML = "";
+
+    if (!chat || !chat.messages.length) {
+        chatBox.innerHTML = `
+            <div class="empty-state">
+                <h3>Start something creative</h3>
+                <p>Type a message or use chips above to begin.</p>
+            </div>
+        `;
+        return;
+    }
+
+    chat.messages.forEach(msg => {
+        if (msg.role === "user") {
+            chatBox.innerHTML += `
+                <div class="message user">
+                    <div class="bubble">${escapeHTML(msg.content)}</div>
                 </div>
             `;
-            return;
-        }
-
-        if (!chat.messages || !chat.messages.length) {
-            chatBox.innerHTML = `
-                <div class="empty-state">
-                    <h3>${escapeHTML(chat.title || "New Chat")}</h3>
-                    <p>No messages yet. Ask Vizzy to create a story, image, poster, or business visual.</p>
+        } 
+        else if (msg.type === "text") {
+            chatBox.innerHTML += `
+                <div class="message ai">
+                    <div class="bubble">${escapeHTML(msg.content)}</div>
                 </div>
             `;
-            return;
-        }
+        } 
+        else if (msg.type === "image") {
+            let imagesHTML = `<div class="img-grid">`;
 
-        chatBox.innerHTML = "";
-        chat.messages.forEach(msg => {
-            if (msg.role === "user") {
-                chatBox.innerHTML += `
-                    <div class="message user">
-                        <div class="bubble">${escapeHTML(msg.content || "")}</div>
+            msg.data.forEach(img => {
+                imagesHTML += `
+                    <div class="img-wrap">
+                        <img src="${img}" onclick="openModal('${img}')" />
                     </div>
                 `;
-            } else if (msg.role === "assistant") {
-                if (msg.type === "image") {
-                    let imagesHTML = `<div class="img-grid">`;
-                    (msg.data || []).forEach(img => {
-                        imagesHTML += `
-                            <div class="img-wrap">
-                                <img src="${img}" onclick="openModal('${img}')" alt="generated visual" />
-                                <div class="img-actions">
-                                    <button onclick="sendQuickAction('make it more cinematic')">🎬</button>
-                                    <button onclick="sendQuickAction('refine this image')">✨</button>
-                                </div>
-                            </div>
-                        `;
-                    });
-                    imagesHTML += `</div>`;
+            });
 
-                    chatBox.innerHTML += `
-                        <div class="message ai">
-                            <div class="bubble">
-                                ${imagesHTML}
-                                <div class="quick-actions">
-                                    <button onclick="sendQuickAction('make it more cinematic')">🎬 Cinematic</button>
-                                    <button onclick="sendQuickAction('refine this image')">✨ Refine</button>
-                                    <button onclick="sendQuickAction('create more like this')">➕ More</button>
-                                    <button onclick="sendQuickAction('make it minimal')">🧊 Minimal</button>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    chatBox.innerHTML += `
-                        <div class="message ai">
-                            <div class="bubble">${escapeHTML(msg.content || "")}</div>
-                        </div>
-                    `;
-                }
-            }
-        });
+            imagesHTML += `</div>`;
 
-        scrollToBottom();
-    }
+            chatBox.innerHTML += `
+                <div class="message ai">
+                    <div class="bubble">${imagesHTML}</div>
+                </div>
+            `;
+        }
+    });
+
+    scrollToBottom();
+}
 
     function newChat() {
         const id = Date.now();
@@ -958,11 +948,8 @@
         clearInput();
     }
 
-    function switchChat(id) {
-        currentChatId = id;
-        renderChatList();
-        renderCurrentChat();
-    }
+    
+    
 
     function clearCurrentChat() {
         const chat = getCurrentChat();
@@ -1049,8 +1036,8 @@
             chat.title = safeTitle(input);
             renderChatList();
         }
-        if (chat.messages.length === 1) {
-    chat.title = input.slice(0, 40);
+        if (!chat.title || chat.title === "New Chat") {
+            chat.title = safeTitle(input);
 }
 
         chat.messages.push({
@@ -1207,32 +1194,39 @@
         scrollToBottom();
     }
     function renameChat(chatId) {
-    let newName = prompt("Rename chat:");
+    const newName = prompt("Rename chat:");
     if (!newName) return;
-
-    let chats = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
 
     chats = chats.map(c => {
         if (c.id === chatId) c.title = newName;
         return c;
     });
 
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
+    saveChats();
     renderChatList();
+    renderCurrentChat();
 }
+
 function deleteChat(chatId) {
-    let chats = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    chatId = Number(chatId); // FIX
+
+    if (!confirm("Delete this chat?")) return;
 
     chats = chats.filter(c => c.id !== chatId);
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(chats));
 
     if (currentChatId === chatId) {
         currentChatId = chats[0]?.id || null;
     }
 
+    saveChats();
     renderChatList();
-    loadCurrentChat();
+    renderCurrentChat();
+}
+function switchChat(id) {
+    currentChatId = id;
+    renderChatList();
+    renderCurrentChat();
+    document.getElementById("input").focus();
 }
 
     window.addEventListener("load", init);
