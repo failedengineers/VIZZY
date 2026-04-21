@@ -21,7 +21,7 @@ client = Groq(api_key=GROQ_API_KEY)
 
 
 def home(request):
-     request.session.flush()
+     #request.session.flush()
      return render(request, 'index.html')
 
 
@@ -39,8 +39,8 @@ def save_memory(request, memory):
 def get_last_prompt(request):
     return request.session.get("last_image_prompt", "")
 
-def save_last_prompt(request, prompt):
-    request.session["last_image_prompt"] = prompt
+def save_last_prompt(request, final_prompt):
+    request.session["last_image_prompt"] = final_prompt
     request.session.modified = True
 
 
@@ -50,47 +50,35 @@ def decide_intent(prompt, chat_memory, last_prompt):
     try:
         p = prompt.lower().strip()
 
-        pure_text_words = [
-            "write", "explain", "answer", "essay"
-        ]
-        if any(word in p for word in pure_text_words):
+        # Clear text requests should always stay text
+        if any(x in p for x in ["write", "poem", "caption", "essay", "answer", "explain"]):
             return "text"
 
-        if "story" in p:
-            if any(x in p for x in ["visualize", "show", "create image", "illustrate", "scene", "draw"]):
-                return "image"
+        # Story is text unless user clearly asks to visualize it
+        if "story" in p and not any(x in p for x in ["visualize", "show", "scene", "draw", "illustrate"]):
             return "text"
 
-        image_force_words = [
-            "visualize", "show", "image", "picture", "poster",
-            "draw", "illustrate", "scene", "design", "render"
-        ]
-        if any(word in p for word in image_force_words):
+        # Strong visual requests
+        if any(x in p for x in ["visualize", "image", "photo", "picture", "poster", "draw", "illustrate", "scene", "design"]):
             return "image"
 
-        if last_prompt and any(x in p for x in [
-            "make it", "refine", "improve", "another", "more like this"
-        ]):
+        # Refinement of last image
+        if last_prompt and any(x in p for x in ["make it", "refine", "improve", "more like this", "another version"]):
             return "image"
 
+        # LLM fallback for ambiguous prompts
         messages = [
             {
                 "role": "system",
                 "content": """
-Return ONLY:
-image OR text
+Return only one word: image or text.
 
-Image = anything visual or scene-based
-Text = anything written or explanation
-
-If user wants to SEE something → image
-If user wants to READ something → text
+Use image only for visual output.
+Use text for stories, explanations, captions, poems, and normal chat.
+If unsure, return text.
 """
             },
-            {
-                "role": "user",
-                "content": prompt
-            }
+            {"role": "user", "content": prompt}
         ]
 
         res = client.chat.completions.create(
@@ -101,18 +89,20 @@ If user wants to READ something → text
         )
 
         decision = res.choices[0].message.content.lower().strip()
-
-        if "image" in decision:
-            return "image"
-
-        return "text"
+        return "image" if "image" in decision else "text"
 
     except:
         return "text"
+import re
 
+def clean_text(text):
+    text = re.sub(r"[*_`]+", "", text)
+    text = re.sub(r"\n{3,}", "\n\n", text)
+    return text.strip()
 
 @api_view(['POST'])
 def chat_view(request):
+
     prompt = request.data.get('message')
 
     if not prompt:
@@ -132,10 +122,11 @@ def chat_view(request):
 
     # -------- IMAGE FLOW --------
     if intent == "image":
-        final_prompt = ""
+
         p = prompt.lower()
 
-        use_story = any(x in p for x in ["this", "that", "above", "story", "previous"])
+        story_refs = ["visualize this", "visualize that", "visualize the story", "show this", "scene from this", "from this story", "previous story"]
+        refine_refs = ["make it", "refine", "improve", "more like this", "another version", "create more"]
 
         last_text = None
         for msg in reversed(chat_memory):
@@ -143,24 +134,41 @@ def chat_view(request):
                 last_text = msg["content"]
                 break
 
-        if use_story and last_text:
+        # 🔥 CASE 1: story → image
+        if any(x in p for x in story_refs) and last_text:
             final_prompt = f"""
-Create a visual scene from this:
+Create a visual scene from this story:
 
 {last_text}
 
 cinematic, detailed, realistic lighting
 """
+
+        # 🔥 CASE 2: refine previous image
+        elif any(x in p for x in refine_refs) and last_prompt:
+            final_prompt = f"""
+Previous image prompt:
+{last_prompt}
+
+User change:
+{prompt}
+
+Keep same subject/style unless changed.
+"""
+
+        # 🔥 CASE 3: fresh image
         else:
             final_prompt = prompt
 
         img = generate_images(final_prompt)
 
         if img:
+            save_last_prompt(request, final_prompt)
             res = {"type": "image", "data": img}
         else:
             res = {"type": "error", "data": "Server busy"}
 
+    # -------- TEXT FLOW --------
     else:
         text = generate_text(prompt, chat_memory)
 
@@ -173,8 +181,6 @@ cinematic, detailed, realistic lighting
 
     save_memory(request, chat_memory)
     return Response(res)
-
-
 def generate_text(prompt, chat_memory):
     try:
         messages = [
@@ -230,7 +236,7 @@ Rules:
             max_tokens=800
         )
 
-        return completion.choices[0].message.content
+        return clean_text(completion.choices[0].message.content)
 
     except Exception as e:
         #print("Groq Error:", e)
@@ -252,7 +258,11 @@ def generate_images(prompt):
         response = requests.post(
             url,
             headers=headers,
-            json={"prompt": prompt}
+            json={
+    "prompt": prompt,
+    "negative_prompt": "people, person, human, car, vehicle, text, watermark, logo"
+},
+             timeout=60
         )
 
         if response.status_code == 200:
