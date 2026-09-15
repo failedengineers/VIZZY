@@ -228,8 +228,9 @@ Rules:
 ]
 
         messages.extend(chat_memory)
-
-        completion = client.chat.completions.create(
+         
+         print("MODEL BEING USED:", "qwen/qwen3.6-27b")
+         completion = client.chat.completions.create(
             model="qwen/qwen3.6-27b",
             messages=messages,
             temperature=0.8,
