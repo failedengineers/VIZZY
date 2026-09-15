@@ -82,7 +82,7 @@ If unsure, return text.
         ]
 
         res = client.chat.completions.create(
-            model="qwen/qwen3.6-27b",
+            model="qwen/qwen3.8-27b",
             messages=messages,
             temperature=0,
             max_tokens=5
@@ -228,8 +228,9 @@ Rules:
 ]
 
         messages.extend(chat_memory)
-         completion = client.chat.completions.create(
-            model="qwen/qwen3.6-27b",
+
+        completion = client.chat.completions.create(
+            model="qwen/qwen3.8-27b",
             messages=messages,
             temperature=0.8,
             max_tokens=800
@@ -278,4 +279,3 @@ def generate_images(prompt):
 
 def enhance_prompt(prompt):
     return f"{prompt}, high quality"
-
