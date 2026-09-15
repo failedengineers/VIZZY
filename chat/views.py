@@ -230,7 +230,7 @@ Rules:
         messages.extend(chat_memory)
 
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="qwen/qwen3.6-27b",
             messages=messages,
             temperature=0.8,
             max_tokens=800
