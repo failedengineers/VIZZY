@@ -82,7 +82,7 @@ If unsure, return text.
         ]
 
         res = client.chat.completions.create(
-            model="llama-3.1-8b-instant",
+            model="qwen/qwen3.6-27b",
             messages=messages,
             temperature=0,
             max_tokens=5
@@ -228,8 +228,6 @@ Rules:
 ]
 
         messages.extend(chat_memory)
-         
-         print("MODEL BEING USED:", "qwen/qwen3.6-27b")
          completion = client.chat.completions.create(
             model="qwen/qwen3.6-27b",
             messages=messages,
